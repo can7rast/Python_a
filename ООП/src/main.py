@@ -1,15 +1,27 @@
 from instruments import MusicalInstrument, Guitar, Piano, Violin, InstrumentMeta
 from rental import Customer, Accessory, Rental, RentalRequest, RequestType, Operator, Manager, Admin, \
     OnlineRentalProcess, OfflineRentalProcess
-from utils import InstrumentFactory
+from utils import InstrumentFactory, PermissionDeniedError
 from datetime import date, timedelta
 
 
 def main():
     try:
-        # Создание клиента
-        customer = Customer(name="Иван Иванов", email="ivan@example.com", phone="+79991234567")
-        print(customer)
+        # Создание клиентов
+        customer_with_permissions = Customer(
+            name="Иван Иванов",
+            email="ivan@example.com",
+            phone="+79991234567",
+            permissions=["can_rent", "can_modify_rental"]
+        )
+        customer_without_permissions = Customer(
+            name="Пётр Петров",
+            email="petr@example.com",
+            phone="+79997654321",
+            permissions=[]
+        )
+        print(customer_with_permissions)
+        print(customer_without_permissions)
 
         # Создание инструментов через фабрику
         guitar = InstrumentFactory.create_instrument(
@@ -57,20 +69,43 @@ def main():
         start_date = date.today()
         end_date = start_date + timedelta(days=10)
 
-        # Онлайн-аренда
-        online_rental = Rental(customer=customer, instrument=guitar, start_date=start_date, end_date=end_date)
+        # Онлайн-аренда (с правами)
+        print("\nОнлайн-аренда (с правами):")
+        online_rental = Rental(
+            customer=customer_with_permissions,
+            instrument=guitar,
+            start_date=start_date,
+            end_date=end_date
+        )
         online_rental.add_accessory(case)
-        print("\nОнлайн-аренда:")
         print(online_rental)
         online_process = OnlineRentalProcess()
         online_process.rent_instrument(online_rental)
         print(f"Инструмент после онлайн-аренды: {guitar}")
         print(online_rental.generate_report())
 
+        # Онлайн-аренда (без прав)
+        print("\nОнлайн-аренда (без прав):")
+        try:
+            unauthorized_rental = Rental(
+                customer=customer_without_permissions,
+                instrument=violin,
+                start_date=start_date,
+                end_date=end_date
+            )
+            online_process.rent_instrument(unauthorized_rental)
+        except PermissionDeniedError as e:
+            print(f"Ошибка доступа: {e}")
+
         # Оффлайн-аренда
-        offline_rental = Rental(customer=customer, instrument=piano, start_date=start_date, end_date=end_date)
-        offline_rental.add_accessory(case)
         print("\nОффлайн-аренда:")
+        offline_rental = Rental(
+            customer=customer_with_permissions,
+            instrument=piano,
+            start_date=start_date,
+            end_date=end_date
+        )
+        offline_rental.add_accessory(case)
         print(offline_rental)
         offline_process = OfflineRentalProcess()
         offline_process.rent_instrument(offline_rental)
@@ -78,9 +113,10 @@ def main():
         print(offline_rental.generate_report())
 
         # Проверка обработки ошибок
+        print("\nПроверка удаления аксессуара:")
         try:
             online_rental.remove_accessory(case.accessory_id)
-            online_rental.remove_accessory(case.accessory_id)  # Ошибка: аксессуар уже удален
+            online_rental.remove_accessory(case.accessory_id)  # Ошибка: аксессуар уже удалён
         except ValueError as e:
             print(f"Ошибка: {e}")
 
@@ -102,7 +138,7 @@ def main():
 
         # Проверка реестра метакласса
         print("\nЗарегистрированные классы инструментов:")
-        print(InstrumentMeta._registry)
+        print(InstrumentMeta.get_registered_classes())
 
     except Exception as e:
         print(f"Произошла ошибка: {e}")

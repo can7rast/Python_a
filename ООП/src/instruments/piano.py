@@ -8,9 +8,11 @@ class Piano(MusicalInstrument, LoggingMixin, NotificationMixin):
 
     def __init__(self, name: str, condition: str, daily_rate: float, key_count: int):
         """Инициализация пианино."""
+        LoggingMixin.__init__(self)  # Явная инициализация LoggingMixin
         super().__init__(name, condition, daily_rate)
         self._key_count: int = key_count
-        self.log_action(f"Создано пианино {name}")
+        self.is_available = True  # Добавлено для совместимости с Rentable
+        self.log(f"Создано пианино {name}")
 
     @property
     def key_count(self) -> int:
@@ -23,7 +25,14 @@ class Piano(MusicalInstrument, LoggingMixin, NotificationMixin):
         if value < 61 or value > 88:
             raise ValueError("Количество клавиш должно быть от 61 до 88")
         self._key_count = value
-        self.log_action(f"Изменено количество клавиш на {value}")
+        self.log(f"Изменено количество клавиш на {value}")
+
+    def rent_instrument(self) -> None:
+        """Арендует пианино."""
+        if not self.is_available:
+            raise ValueError(f"Пианино {self.name} уже арендовано")
+        self.is_available = False
+        self.log(f"Пианино {self.name} арендовано")
 
     def calculate_rental_cost(self, days: int) -> float:
         """Рассчитывает стоимость аренды пианино."""
@@ -32,8 +41,12 @@ class Piano(MusicalInstrument, LoggingMixin, NotificationMixin):
             base_cost *= 1.2  # Премиум-тариф 20% для пианино с более чем 76 клавишами
         if days > 7:
             base_cost *= 0.8  # Скидка 20% за аренду более 7 дней
-        self.log_action(f"Рассчитана стоимость аренды пианино {self.name} на {days} дней: {base_cost}")
+        self.log(f"Рассчитана стоимость аренды пианино {self.name} на {days} дней: {base_cost}")
         return base_cost
+
+    def generate_report(self) -> str:
+        """Генерирует отчет для пианино."""
+        return f"Отчет: Пианино {self.name}, Состояние: {self.condition}, Клавиш: {self._key_count}"
 
     def __str__(self) -> str:
         """Возвращает строковое представление пианино."""

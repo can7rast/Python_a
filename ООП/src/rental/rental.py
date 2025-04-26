@@ -5,7 +5,7 @@ from .customer import Customer
 from .accessory import Accessory
 from instruments.musical_instrument import MusicalInstrument
 from .interfaces import Rentable, Reportable
-from utils import LoggingMixin, NotificationMixin
+from utils import LoggingMixin, NotificationMixin, check_permissions
 
 class Rental(Rentable, Reportable, LoggingMixin, NotificationMixin):
     """Класс для представления аренды."""
@@ -25,6 +25,7 @@ class Rental(Rentable, Reportable, LoggingMixin, NotificationMixin):
             start_date: Дата начала аренды.
             end_date: Дата окончания аренды.
         """
+        LoggingMixin.__init__(self)  # Явная инициализация LoggingMixin
         self._rental_id: UUID = uuid4()
         self._customer: Customer = customer
         self._instrument: MusicalInstrument = instrument
@@ -33,10 +34,9 @@ class Rental(Rentable, Reportable, LoggingMixin, NotificationMixin):
         self._accessories: List[Accessory] = []
         self._total_cost: float = 0.0
         self.calculate_total()
-        self.log_action(f"Создана аренда #{self._rental_id} для {customer.name}")
-        self.send_notification(
-            f"Ваш инструмент {instrument.name} готов к выдаче",
-            customer.email
+        self.log(f"Создана аренда #{self._rental_id} для {customer.name}")
+        self.notify(
+            f"Ваш инструмент {instrument.name} готов к выдаче для {customer.email}"
         )
 
     @property
@@ -74,6 +74,7 @@ class Rental(Rentable, Reportable, LoggingMixin, NotificationMixin):
         """Возвращает список аксессуаров."""
         return self._accessories
 
+    @check_permissions("can_modify_rental")
     def add_accessory(self, accessory: Accessory) -> None:
         """Добавляет аксессуар к аренде.
 
@@ -82,8 +83,9 @@ class Rental(Rentable, Reportable, LoggingMixin, NotificationMixin):
         """
         self._accessories.append(accessory)
         self.calculate_total()
-        self.log_action(f"Добавлен аксессуар {accessory.name} к аренде #{self._rental_id}")
+        self.log(f"Добавлен аксессуар {accessory.name} к аренде #{self._rental_id}")
 
+    @check_permissions("can_modify_rental")
     def remove_accessory(self, accessory_id: UUID) -> None:
         """Удаляет аксессуар из аренды.
 
@@ -96,7 +98,7 @@ class Rental(Rentable, Reportable, LoggingMixin, NotificationMixin):
             if accessory.accessory_id == accessory_id:
                 self._accessories.remove(accessory)
                 self.calculate_total()
-                self.log_action(f"Удален аксессуар {accessory.name} из аренды #{self._rental_id}")
+                self.log(f"Удален аксессуар {accessory.name} из аренды #{self._rental_id}")
                 return
         raise ValueError("Аксессуар не найден")
 
@@ -109,18 +111,13 @@ class Rental(Rentable, Reportable, LoggingMixin, NotificationMixin):
         instrument_cost = self._instrument.calculate_rental_cost(days)
         accessories_cost = sum(accessory.cost * days for accessory in self._accessories)
         self._total_cost = instrument_cost + accessories_cost
-        self.log_action(f"Рассчитана стоимость аренды #{self._rental_id}: {self._total_cost}")
+        self.log(f"Рассчитана стоимость аренды #{self._rental_id}: {self._total_cost}")
 
+    @check_permissions("can_rent")
     def rent_instrument(self) -> None:
         """Арендует инструмент, устанавливая его как недоступный."""
-        if not self._instrument.is_available:
-            raise ValueError("Инструмент уже арендован")
-        self._instrument.is_available = False
-        self.log_action(f"Инструмент {self._instrument.name} арендован для {self._customer.name}")
-        self.send_notification(
-            f"Аренда инструмента {self._instrument.name} подтверждена",
-            self._customer.email
-        )
+        self._instrument.rent_instrument()
+        self.log(f"Инструмент {self._instrument.name} арендован для {self._customer.name}")
 
     def generate_report(self) -> str:
         """Генерирует отчет об аренде.
@@ -137,7 +134,7 @@ class Rental(Rentable, Reportable, LoggingMixin, NotificationMixin):
             f"Аксессуары: {accessories_str}\n"
             f"Общая стоимость: {self._total_cost:.2f}"
         )
-        self.log_action(f"Сгенерирован отчет для аренды #{self._rental_id}")
+        self.log(f"Сгенерирован отчет для аренды #{self._rental_id}")
         return report
 
     def __str__(self) -> str:

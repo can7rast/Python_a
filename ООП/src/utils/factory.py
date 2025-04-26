@@ -1,12 +1,6 @@
 class InstrumentFactory:
     """Фабрика для создания музыкальных инструментов."""
 
-    _instrument_types = {
-        "guitar": "Guitar",
-        "piano": "Piano",
-        "violin": "Violin"
-    }
-
     @staticmethod
     def create_instrument(instrument_type: str, *args, **kwargs):
         """Создаёт экземпляр инструмента по типу.

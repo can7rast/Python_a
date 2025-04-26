@@ -1,32 +1,29 @@
 import logging
+import os
 from datetime import datetime
 
-# Настройка логгера
-logging.basicConfig(
-    filename='logs/rental_service.log',
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
-
 class LoggingMixin:
-    """Миксин для логирования действий."""
+    def __init__(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.setLevel(logging.INFO)
+        if not self.logger.handlers:
+            os.makedirs('logs', exist_ok=True)
+            file_handler = logging.FileHandler(
+                f"logs/rental_service_{datetime.now().strftime('%Y%m%d')}.log"
+            )
+            file_handler.setFormatter(logging.Formatter(
+                '%(asctime)s - %(levelname)s - %(name)s: %(message)s'
+            ))
+            self.logger.addHandler(file_handler)
+            console_handler = logging.StreamHandler()
+            console_handler.setFormatter(logging.Formatter(
+                '%(asctime)s - %(levelname)s - %(name)s: %(message)s'
+            ))
+            self.logger.addHandler(console_handler)
 
-    def log_action(self, message: str) -> None:
-        """Записывает действие в лог.
-
-        Args:
-            message: Сообщение для логирования.
-        """
-        logging.info(f"{self.__class__.__name__}: {message}")
+    def log(self, message: str) -> None:
+        self.logger.info(message)
 
 class NotificationMixin:
-    """Миксин для отправки уведомлений."""
-
-    def send_notification(self, message: str, recipient: str) -> None:
-        """Имитирует отправку уведомления.
-
-        Args:
-            message: Сообщение для отправки.
-            recipient: Получатель (например, email).
-        """
-        print(f"[УВЕДОМЛЕНИЕ] {message} для {recipient}")
+    def notify(self, message: str) -> None:
+        print(f"[УВЕДОМЛЕНИЕ] {message}")
